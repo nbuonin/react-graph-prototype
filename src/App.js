@@ -1,9 +1,5 @@
-import React, { Component } from "react";
-import CentralLimitGraph from "./CentralLimitGraph"
+import { CentralLimitGraph } from './CentralLimitGraph'
 
-class App extends Component {
-    render() {
-        return <CentralLimitGraph />;
-    }
-}
- export default App;
+export const App = () => (
+    <CentralLimitGraph />
+)
