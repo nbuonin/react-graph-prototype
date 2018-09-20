@@ -1,5 +1,5 @@
 import { Component } from 'react';
-import { VictoryChart, VictoryTheme, VictoryBar } from 'victory';
+import { VictoryChart, VictoryTheme, VictoryBar, VictoryArea, VictoryLine } from 'victory';
 var seedrandom = require('seedrandom');
 var jStat = require('jStat').jStat;
 
@@ -9,13 +9,10 @@ const createHistogramArray = (dist) => {
     // Build an array: [[val, 0], ...]
     const setRedux = (acc, val) => {
         acc.push([val[0], 0]);
-        console.log(acc);
         return acc;
     }
 
     let xSetList = [...xSet.entries()].reduce(setRedux, new Array(0));
-    console.log("xSetList: ");
-    console.log(xSetList);
 
     const redux = (acc, val) => {
         // findVal needs to be declared each time to
@@ -28,39 +25,18 @@ const createHistogramArray = (dist) => {
         return acc;
     }
 
-    //return dist.reduce(redux, xSetList);
-    let result = dist.reduce(redux, xSetList);
-    console.log("histogram: ");
-    console.log(result);
-    return result
+    return dist.reduce(redux, xSetList);
 }
 
-const GraphForm = ({seed, population, populationSize, mean, handleChange}) => {
-    console.log(population)
-    const handleFormChange = (e) => {
-        handleChange(e.target.id, e.target.value)
-    }
+const GraphForm = ({seed, populationGraphData, populationSize, mean, handleChange}) => {
     return (
         <>
-        <form action="">
-            <label htmlFor="seed">Seed: </label>
-            <input type="text"
-                id="seed"
-                value={seed}
-                onChange={handleFormChange}/>
-            <label htmlFor="populationSize">Population Size: </label>
-            <input type="number"
-                id="populationSize"
-                value={populationSize}
-                onChange={handleFormChange}/>
-            <label htmlFor="mean">Mean: </label>
-            <input type="number"
-                id="mean"
-                value={mean}
-                onChange={handleFormChange}/>
-        </form>
-        <VictoryChart theme={VictoryTheme.material}>
-            <VictoryBar data={population}
+        <VictoryChart theme={VictoryTheme.material}
+            height={200}>
+            <VictoryBar data={populationGraphData}
+                x={0}
+                y={1}/>
+            <VictoryArea data={populationGraphData}
                 x={0}
                 y={1}/>
         </VictoryChart>
@@ -68,24 +44,82 @@ const GraphForm = ({seed, population, populationSize, mean, handleChange}) => {
     )
 }
 
-const GraphData = ({seed, populationSize, mean}) => {
+const GraphData = ({seed, populationSize, mean, stdDev, handleChange}) => {
+    const handleFormChange = (e) => {
+        handleChange(e.target.id, e.target.value)
+    }
     return (
-        <table>
-            <tbody>
-                <tr>
-                    <td>seed</td>
-                    <td>{seed}</td>
-                </tr>
-                <tr>
-                    <td>populationSize</td>
-                    <td>{populationSize}</td>
-                </tr>
-                <tr>
-                    <td>mean</td>
-                    <td>{mean}</td>
-                </tr>
-            </tbody>
-        </table>
+        <div class={"row"}>
+            <div class={"col-4"}>
+                <h3>Debug Data</h3>
+                <table>
+                    <tbody>
+                        <tr>
+                            <td>seed</td>
+                            <td>{seed}</td>
+                        </tr>
+                        <tr>
+                            <td>populationSize</td>
+                            <td>{populationSize}</td>
+                        </tr>
+                        <tr>
+                            <td>mean</td>
+                            <td>{mean}</td>
+                        </tr>
+                        <tr>
+                            <td>Standard Deviation</td>
+                            <td>{stdDev}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class={"col-4"}>
+                <h3>Population Params</h3>
+                <form action="">
+                    <div>
+                        <label htmlFor="seed">Seed: </label>
+                        <input type="text"
+                            id="seed"
+                            value={seed}
+                            onChange={handleFormChange}/>
+                    </div>
+                    <div>
+                        <label htmlFor="populationSize">Population Size: </label>
+                        <input type="number"
+                            id="populationSize"
+                            value={populationSize}
+                            onChange={handleFormChange}/>
+                    </div>
+                    <div>
+                        <label htmlFor="mean">Mean: </label>
+                        <input type="number"
+                            id="mean"
+                            value={mean}
+                            onChange={handleFormChange}/>
+                    </div>
+                    <div>
+                        <label htmlFor="mean">StdDev: </label>
+                        <input type="number"
+                            id="stdDev"
+                            value={stdDev}
+                            onChange={handleFormChange}/>
+                    </div>
+                </form>
+            </div>
+            <div class={"col-4"}>
+                <h3>Sample Params</h3>
+                <form action="">
+                    <div>
+                        <label htmlFor="seed">Seed: </label>
+                        <input type="text"
+                            id="seed"
+                            value={seed}
+                            onChange={handleFormChange}/>
+                    </div>
+                    <button>Run Sample</button>
+                </form>
+            </div>
+        </div>
     )
 }
 
@@ -97,16 +131,23 @@ export class CentralLimitGraph extends Component {
         this.generatePopulation = this.generatePopulation.bind(this);
         seedrandom("cojoc", {glabal: true});
 
-        const population = this.generatePopulation(10, 0, 1);
+        const populationSize = 1000;
+        const mean = 0;
+        const stdDev = 1;
+        const population = this.generatePopulation(
+            populationSize,
+            mean,
+            stdDev
+        );
         const populationGraphData = createHistogramArray(population);
 
         this.state = {
             seed: "cojoc",
-            populationSize: 10,
+            populationSize: populationSize,
             population: population,
             populationGraphData: populationGraphData,
-            mean: 0,
-            stdDev: 1,
+            mean: mean,
+            stdDev: stdDev,
             sampleSize: 5,
             numberOfSamples: 10,
             sampleSet: [],
@@ -114,6 +155,7 @@ export class CentralLimitGraph extends Component {
         }
     }
     handleChange(key, value) {
+        console.log(this.state.population);
         const population = this.generatePopulation(
                 key === "populationSize" ? value : this.state.populationSize,
                 key === "mean" ? value : this.state.mean,
@@ -128,23 +170,19 @@ export class CentralLimitGraph extends Component {
     generatePopulation(size, mean, stdDev) {
         return jStat.create(1, size, (row) => {
             let i = jStat.normal.sample(mean, stdDev);
-            //return Math.round(i * 1);
-            return i;
+            return parseFloat(i.toFixed(1));
         })[0];
-        //return jStat.rand(1, size)[0];
     }
 
     render() {
         return (
             <>
-            <h2>Hello Nick!</h2>
+            <h2>Central Limit Theorem</h2>
+            <GraphForm populationGraphData={this.state.populationGraphData}/>
             <GraphData seed={this.state.seed}
                 populationSize={this.state.populationSize}
-                mean={this.state.mean} />
-            <GraphForm seed={this.state.seed}
-                populationSize={this.state.populationSize}
                 mean={this.state.mean}
-                population={this.state.population}
+                stdDev={this.state.stdDev}
                 handleChange={this.handleChange}/>
             </>
         )
