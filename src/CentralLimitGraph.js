@@ -1,7 +1,12 @@
 import { Component } from 'react';
 import { VictoryChart, VictoryTheme, VictoryBar, VictoryArea, VictoryLine } from 'victory';
+import * as _ from 'lodash';
 var seedrandom = require('seedrandom');
 var jStat = require('jStat').jStat;
+
+const roundFloat = (n) => {
+    return parseFloat(n.toFixed(1));
+}
 
 const createHistogramArray = (dist) => {
     let xSet = new Set(dist);
@@ -28,7 +33,8 @@ const createHistogramArray = (dist) => {
     return dist.reduce(redux, xSetList);
 }
 
-const GraphForm = ({seed, populationGraphData, populationSize, mean, handleChange}) => {
+const GraphForm = ({seed, populationGraphData, populationSize, mean, sampleMeansGraphData, handleChange}) => {
+    console.log(sampleMeansGraphData);
     return (
         <>
         <VictoryChart theme={VictoryTheme.material}
@@ -36,21 +42,30 @@ const GraphForm = ({seed, populationGraphData, populationSize, mean, handleChang
             <VictoryBar data={populationGraphData}
                 x={0}
                 y={1}/>
-            <VictoryArea data={populationGraphData}
-                x={0}
-                y={1}/>
+            { sampleMeansGraphData &&
+                <VictoryLine data={sampleMeansGraphData}
+                    x={0}
+                    y={1}/>
+            }
         </VictoryChart>
         </>
     )
 }
 
-const GraphData = ({seed, populationSize, mean, stdDev, handleChange}) => {
+const GraphData = ({seed, populationSize, mean, stdDev,
+    sampleSize, numberOfSamples, handleChange, runSample}) => {
+
     const handleFormChange = (e) => {
-        handleChange(e.target.id, e.target.value)
+        handleChange(e.target.id, e.target.value);
+    };
+
+    const handleRunSample = (e) => {
+        e.preventDefault();
+        runSample();
     }
     return (
-        <div class={"row"}>
-            <div class={"col-4"}>
+        <div className={"row"}>
+            <div className={"col-4"}>
                 <h3>Debug Data</h3>
                 <table>
                     <tbody>
@@ -70,10 +85,18 @@ const GraphData = ({seed, populationSize, mean, stdDev, handleChange}) => {
                             <td>Standard Deviation</td>
                             <td>{stdDev}</td>
                         </tr>
+                        <tr>
+                            <td>Sample Size</td>
+                            <td>{sampleSize}</td>
+                        </tr>
+                        <tr>
+                            <td>Number of samples</td>
+                            <td>{numberOfSamples}</td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
-            <div class={"col-4"}>
+            <div className={"col-4"}>
                 <h3>Population Params</h3>
                 <form action="">
                     <div>
@@ -98,7 +121,7 @@ const GraphData = ({seed, populationSize, mean, stdDev, handleChange}) => {
                             onChange={handleFormChange}/>
                     </div>
                     <div>
-                        <label htmlFor="mean">StdDev: </label>
+                        <label htmlFor="stdDev">StdDev: </label>
                         <input type="number"
                             id="stdDev"
                             value={stdDev}
@@ -106,17 +129,26 @@ const GraphData = ({seed, populationSize, mean, stdDev, handleChange}) => {
                     </div>
                 </form>
             </div>
-            <div class={"col-4"}>
+            <div className={"col-4"}>
                 <h3>Sample Params</h3>
-                <form action="">
+                <form onClick={handleRunSample} >
                     <div>
-                        <label htmlFor="seed">Seed: </label>
-                        <input type="text"
-                            id="seed"
-                            value={seed}
+                        <label htmlFor="sampleSize">Sample Size: </label>
+                        <input type="number"
+                            id="sampleSize"
+                            value={sampleSize}
                             onChange={handleFormChange}/>
                     </div>
-                    <button>Run Sample</button>
+                    <div>
+                        <label htmlFor="numberOfSamples">Number of samples: </label>
+                        <input type="number"
+                            id="numberOfSamples"
+                            value={numberOfSamples}
+                            onChange={handleFormChange}/>
+                    </div>
+                    <div>
+                        <input type="submit" value="Run Sample"/>
+                    </div>
                 </form>
             </div>
         </div>
@@ -129,6 +161,8 @@ export class CentralLimitGraph extends Component {
 
         this.handleChange = this.handleChange.bind(this);
         this.generatePopulation = this.generatePopulation.bind(this);
+        this.runSample = this.runSample.bind(this);
+        //this.sampleMeanIterator = this.sampleMeanIterator.bind(this);
         seedrandom("cojoc", {glabal: true});
 
         const populationSize = 1000;
@@ -150,12 +184,11 @@ export class CentralLimitGraph extends Component {
             stdDev: stdDev,
             sampleSize: 5,
             numberOfSamples: 10,
-            sampleSet: [],
-            sampleSetMean: []
+            sampleMeans: [],
+            sampleMeansGraphData: []
         }
     }
     handleChange(key, value) {
-        console.log(this.state.population);
         const population = this.generatePopulation(
                 key === "populationSize" ? value : this.state.populationSize,
                 key === "mean" ? value : this.state.mean,
@@ -170,20 +203,42 @@ export class CentralLimitGraph extends Component {
     generatePopulation(size, mean, stdDev) {
         return jStat.create(1, size, (row) => {
             let i = jStat.normal.sample(mean, stdDev);
-            return parseFloat(i.toFixed(1));
+            return roundFloat(i);
         })[0];
     }
-
+    runSample() {
+        // take samples from population values
+        // - one sample consists of N sampleSize, which are then averaged
+        // - N numberOfSamples are taken
+        // push these to sampleSet
+        // get the histogram and set state, render a line graph
+        let sampleMeans = [];
+        for (var i = 0; i < this.state.numberOfSamples; i++) {
+            let samples = _.sampleSize(
+                this.state.population,
+                this.state.sampleSize);
+            sampleMeans.push(roundFloat(_.mean(samples)));
+        }
+        let sampleMeansData = createHistogramArray(sampleMeans);
+        this.setState({
+            sampleMeans: sampleMeans,
+            sampleMeansGraphData: sampleMeansData
+        });
+    }
     render() {
         return (
             <>
             <h2>Central Limit Theorem</h2>
-            <GraphForm populationGraphData={this.state.populationGraphData}/>
+            <GraphForm populationGraphData={this.state.populationGraphData}
+                sampleMeansGraphData={this.state.sampleMeansGraphData}/>
             <GraphData seed={this.state.seed}
                 populationSize={this.state.populationSize}
                 mean={this.state.mean}
                 stdDev={this.state.stdDev}
-                handleChange={this.handleChange}/>
+                sampleSize={this.state.sampleSize}
+                numberOfSamples={this.state.numberOfSamples}
+                handleChange={this.handleChange}
+                runSample={this.runSample}/>
             </>
         )
     }
