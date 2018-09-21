@@ -9,5 +9,8 @@ $(JS_SENTINAL): package.json
 runserver: $(JS_SENTINAL)
 	npm run serve
 
+build: $(JS_SENTINAL)
+	npm run build
+
 clean:
 	rm -rf node_modules
